@@ -12,35 +12,117 @@ Shows how the TDP platform fits into the broader ecosystem of users and external
 
 ```mermaid
 flowchart TB
-    subgraph users["Users"]
-        Researcher["👨‍🔬 Researcher\nPharmaceutical scientist using\nthe platform for drug target discovery"]
-        Admin["👨‍💼 Administrator\nManages data ingestion\nand platform configuration"]
+    %% =======================
+    %% Primary Actor
+    %% =======================
+    subgraph users["Primary Actor"]
+        Researcher["👨‍🔬 End User (Researcher / Scientist)\nAccesses TDP via web browser\nQueries gene–disease relationships\nPerforms enrichment analysis"]
     end
 
-    subgraph tdp["Target Discovery Platform"]
-        TDP["🧬 TDP Platform\n\nWeb-based bioinformatics platform\nfor protein-protein interaction\nanalysis and drug target identification"]
+    %% =======================
+    %% Entry Point
+    %% =======================
+    Browser["🌐 User Web Browser\n(Chrome / Firefox)\nHTTP/HTTPS : 80 / 443"]
+
+    %% =======================
+    %% System Boundary
+    %% =======================
+    subgraph tdp["🧬 Target Discovery Platform (TDP)\nSystem Boundary"]
+        direction TB
+
+        APIGW["🚪 API Gateway (Nginx)\nEntry point\nRoutes requests\nPorts 80 / 443"]
+
+        Frontend["🖥️ Frontend Service (Next.js)\nUser Interface\nGraphQL + REST client\nSession handling"]
+
+        Backend["⚙️ Backend Service (NestJS)\n/api/nestjs/*\nGraphQL API\nBusiness logic\nAuth & access control"]
+
+        GSEA["🧪 GSEA Service (FastAPI)\n/api/gsea/*\nGene Set Enrichment\nAnalysis"]
+
+        %% Data Stores
+        Neo4j["🕸️ Neo4j\nGraph DB\nGenes · Diseases · Interactions\nBolt : 7687"]
+        ClickHouse["📈 ClickHouse\nAnalytics DB\nGene properties & scores\nTCP : 9000"]
+        Postgres["🗄️ PostgreSQL\nSessions · Feedback · Metadata\nTCP : 5432"]
+        Redis["⚡ Redis Cache\nQuery results & sessions\nTCP : 6379"]
+
+        %% Internal Processing
+        GSEAPY["🧬 gseapy Library\nEnrichment computation\nGMT pathway files"]
     end
 
-    subgraph external["External Systems"]
-        OpenTargets["📊 Open Targets\nDrug target database\nAssociation scores"]
-        KEGG["🔬 KEGG Database\nPathway information"]
-        Reactome["⚗️ Reactome\nPathway database"]
-        BioGRID["🧪 BioGRID\nProtein interaction data"]
-        NCBI["🧬 NCBI\nGene reference data"]
-    end
+    %% =======================
+    %% User Interaction Flow
+    %% =======================
+    Researcher -->|"Uses platform"| Browser
+    Browser -->|"HTTP / HTTPS"| APIGW
 
-    Researcher -->|"Uses via browser"| TDP
-    Admin -->|"CLI tools, data uploads"| TDP
-    
-    TDP -.->|"Gene-disease\nassociations"| OpenTargets
-    TDP -.->|"Pathway\ndefinitions"| KEGG
-    TDP -.->|"Pathway\ndefinitions"| Reactome
-    TDP -.->|"PPI data\nbulk download"| BioGRID
-    TDP -.->|"Gene metadata"| NCBI
+    %% =======================
+    %% Routing
+    %% =======================
+    APIGW -->|"UI requests"| Frontend
+    APIGW -->|"GraphQL / REST"| Backend
+    APIGW -->|"POST gene lists"| GSEA
 
-    style TDP fill:#1168bd,stroke:#0b4884,color:#ffffff
+    %% =======================
+    %% Frontend ↔ Backend
+    %% =======================
+    Frontend -->|"GraphQL queries\nGenes, diseases, interactions"| Backend
+    Backend -->|"GraphQL responses"| Frontend
+
+    Frontend -->|"REST calls\nAccess protected research data"| Backend
+
+    %% =======================
+    %% Graph Query Flow
+    %% =======================
+    Backend -->|"Cache check (READ)"| Redis
+    Redis -->|"Cache miss"| Backend
+    Backend -->|"Graph queries (READ)\nGenes & interactions"| Neo4j
+    Backend -->|"Store results (WRITE)"| Redis
+    Backend -->|"Query response"| Frontend
+
+    %% =======================
+    %% Analytics Query Flow
+    %% =======================
+    Backend -->|"Analytics queries (READ)"| ClickHouse
+    ClickHouse -->|"Aggregated data"| Backend
+    Backend -->|"Analytics response"| Frontend
+
+    %% =======================
+    %% GSEA Flow
+    %% =======================
+    Frontend -->|"POST gene list"| GSEA
+    GSEA -->|"Run enrichment"| GSEAPY
+    GSEAPY -->|"Pathway results"| GSEA
+    GSEA -->|"Enrichment output"| Frontend
+
+    %% =======================
+    %% Data Commons Flow
+    %% =======================
+    Backend -->|"Session validation (READ)"| Postgres
+    Postgres -->|"Access granted"| Backend
+    Backend -->|"Serve protected files"| Frontend
+
+    %% =======================
+    %% Feedback Flow
+    %% =======================
+    Frontend -->|"Submit feedback (WRITE)"| Backend
+    Backend -->|"Store feedback"| Postgres
+
+    %% =======================
+    %% Styling
+    %% =======================
     style Researcher fill:#08427b,stroke:#052e56,color:#ffffff
-    style Admin fill:#08427b,stroke:#052e56,color:#ffffff
+    style Browser fill:#4f6bed,stroke:#2f3fb3,color:#ffffff
+
+    style APIGW fill:#1168bd,stroke:#0b4884,color:#ffffff
+    style Frontend fill:#1168bd,stroke:#0b4884,color:#ffffff
+    style Backend fill:#1168bd,stroke:#0b4884,color:#ffffff
+    style GSEA fill:#1168bd,stroke:#0b4884,color:#ffffff
+
+    style Neo4j fill:#2ecc71,stroke:#1e8449,color:#ffffff
+    style ClickHouse fill:#f39c12,stroke:#b9770e,color:#ffffff
+    style Postgres fill:#3498db,stroke:#21618c,color:#ffffff
+    style Redis fill:#e74c3c,stroke:#922b21,color:#ffffff
+    style GSEAPY fill:#8e44ad,stroke:#5b2c6f,color:#ffffff
+
 ```
 
 ### Context Description
