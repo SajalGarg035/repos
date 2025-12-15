@@ -11,84 +11,97 @@ This document presents the TDP platform architecture using C4 model diagrams, pr
 Shows how the TDP platform fits into the broader ecosystem of users and external systems.
 
 ```mermaid
-%% C4 System Context Diagram for TDP
-%% Style Definitions for Read vs Write distinction
-%% READ operations = Blue, WRITE/MIXED operations = Orange/Red
-classDef readFlow stroke:#0277bd,stroke-width:2px,color:#0277bd,fill:none;
-classDef writeFlow stroke:#e65100,stroke-width:2px,color:#e65100,fill:none;
+flowchart TD
+    %% --- STYLING DEFINITIONS ---
+    classDef userNode fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#01579b,rx:10,ry:10;
+    classDef extSystem fill:#f5f5f5,stroke:#616161,stroke-width:1px,color:#424242,stroke-dasharray: 5 5;
+    classDef frontend fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+    classDef backend fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#e65100;
+    classDef database fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c,shape:cyl;
+    classDef ingest fill:#fff8e1,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
 
-graph TD
-    %% --- Actors and External Systems ---
-    User["👤 End User\n(Researcher/Scientist)"]
-    Browser["🌐 User's Web Browser\n(Entry Point)"]
-
-    %% --- TDP System Boundary ---
-    subgraph tdp_boundary["🏢 Target Discovery Platform (TDP) System Boundary"]
-        direction TB
-        
-        %% Entry Point Layer
-        Nginx["🛡️ API Gateway\n(Nginx)\nRoutes requests"]
-
-        %% Service Layer
-        Frontend["💻 Frontend Service\n(Next.js)\nServes UI, handles interactions"]
-        NestJS["⚙️ Backend Service\n(NestJS)\nBusiness logic, Auth, GraphQL API"]
-        GSEA["🔬 GSEA Service\n(Python/FastAPI)\nPerforms enrichment analysis"]
-
-        %% Data Store Layer
-        subgraph DataStores["💾 Data Stores"]
-            Redis[("⚡ Redis\n(Cache Layer)\nCaches frequently accessed results")]
-            Neo4j[("🕸️ Neo4j\n(Graph DB)\nGenes, diseases, interactions")]
-            ClickHouse[("📊 ClickHouse\n(Analytics DB)\nGene properties, associations")]
-            Postgres[("🗄️ PostgreSQL\n(Relational DB)\nSessions, feedback storage")]
-        end
-
-        %% Internal Processing Notes
-        noteGSEA[/"Internal: Uses gseapy & GMT pathway files"/]
-        GSEA -.-> noteGSEA
+    %% --- USER LAYER ---
+    subgraph Users ["👥 User Interaction Layer"]
+        direction LR
+        Researcher["👨‍🔬 Researcher<br/><i>Drug Target Discovery</i>"]:::userNode
+        Admin["👨‍💼 Administrator<br/><i>Config & Ingestion</i>"]:::userNode
     end
 
-    %% --- Flows outside boundary ---
-    User ==>"HTTPS"==> Browser
+    %% --- MAIN PLATFORM BOUNDARY ---
+    subgraph TDP_Boundary ["🧬 Target Discovery Platform (TDP)"]
+        direction TB
 
-    %% --- Flows crossing boundary ---
-    Browser ==>"HTTPS (Port 443/80)"==> Nginx
-    linkStyle 1 stroke:#e65100,stroke-width:3px; %% Initial connection is mixed
+        %% Presentation Layer
+        subgraph UI_Layer ["🖥️ Presentation Layer"]
+            WebPortal["⚛️ Web Portal<br/>(React/Vue SPA)"]:::frontend
+            AdminDash["🛠️ Admin Console<br/>(Management UI)"]:::frontend
+        end
 
-    %% --- Internal System Flows ---
+        %% Application Layer
+        subgraph App_Layer ["⚙️ Application & Service Layer"]
+            APIGateway["🌐 API Gateway<br/>(REST/GraphQL)"]:::backend
+            AuthService["🛡️ Auth Service<br/>(SSO/RBAC)"]:::backend
+            AnalysisEngine["🧠 Analysis Engine<br/>(Graph Algorithms/ML)"]:::backend
+            SearchService["🔍 Search Service<br/>(Elasticsearch)"]:::backend
+        end
 
-    %% 1. API Gateway Routing
-    Nginx --"Routes UI requests"--> Frontend
-    Nginx --"Routes /api/nestjs/*"--> NestJS
-    Nginx --"Routes /api/gsea/*"--> GSEA
+        %% Data Ingestion Layer
+        subgraph ETL_Layer ["📥 Data Ingestion Pipeline"]
+            ETL_Worker["🔄 ETL Workers<br/>(Python/Airflow)"]:::ingest
+            DataValidator["✅ Data Validator"]:::ingest
+        end
 
-    %% 2. Frontend Interactions (Mixed Read/Write)
-    Frontend --"GraphQL Queries (Genes, Interactions)\n[Read]"--> NestJS:::readFlow
-    Frontend --"REST (Data Commons access)\n[Read]"--> NestJS:::readFlow
-    Frontend --"POST Gene Lists\n[Write]"--> GSEA:::writeFlow
-    Frontend --"Submit Feedback\n[Write]"--> NestJS:::writeFlow
+        %% Persistence Layer
+        subgraph Data_Layer ["💾 Persistence Layer"]
+            GraphDB[("🕸️ Knowledge Graph<br/>(Neo4j/Amazon Neptune)<br/>Stores PPI & Pathways")]:::database
+            RelationalDB[("🗄️ Relational DB<br/>(PostgreSQL)<br/>User Data & Metadata")]:::database
+        end
+    end
 
-    %% 3. Backend to Data Stores (Read Flows - Blue)
-    NestJS --"Bolt (Port 7687)\nQueries gene interactions"--> Neo4j:::readFlow
-    NestJS --"TCP/HTTP (Port 8123/9000)\nAnalytics queries"--> ClickHouse:::readFlow
-    NestJS --"TCP (Port 5432)\nValidates session access"--> Postgres:::readFlow
+    %% --- EXTERNAL SYSTEMS ---
+    subgraph External ["🌍 External Data Ecosystem"]
+        direction LR
+        OpenTargets["📊 Open Targets"]:::extSystem
+        KEGG["🔬 KEGG"]:::extSystem
+        Reactome["⚗️ Reactome"]:::extSystem
+        BioGRID["🧪 BioGRID"]:::extSystem
+        NCBI["🧬 NCBI"]:::extSystem
+    end
 
-    %% 4. Backend to Data Stores (Write/Mixed Flows - Orange)
-    NestJS --"TCP (Port 6379)\nCache checks and storage"--> Redis:::writeFlow
-    NestJS --"TCP (Port 5432)\nStores feedback & logs"--> Postgres:::writeFlow
+    %% --- CONNECTIONS ---
+    
+    %% User to UI
+    Researcher ==>|"HTTPS / Queries"| WebPortal
+    Admin ==>|"HTTPS / Config"| AdminDash
 
-    %% --- Styling for Nodes ---
-    class User person;
-    class Nginx,Frontend,NestJS,GSEA internalComponent;
-    class Redis,Neo4j,ClickHouse,Postgres internalDatabase;
-    class Browser externalSystem;
+    %% UI to API
+    WebPortal -->|"API Calls"| APIGateway
+    AdminDash -->|"API Calls"| APIGateway
 
-    %% Define C4 standard styles
-    classDef person fill:#08427b,stroke:#052e56,color:white;
-    classDef externalSystem fill:#999999,stroke:#666666,color:white;
-    classDef internalComponent fill:#1168bd,stroke:#0b4884,color:white;
-    classDef internalDatabase fill:#2f95d7,stroke:#0b4884,color:white,shape:cyl;
-    style tdp_boundary fill:#f4faff,stroke:#0b4884,stroke-width:4px,stroke-dasharray: 5 5;
-    style noteGSEA fill:#fff,stroke:#999,stroke-dasharray: 3 3;
+    %% API to Services
+    APIGateway --> AuthService
+    APIGateway --> AnalysisEngine
+    APIGateway --> SearchService
+
+    %% Services to Data
+    AnalysisEngine -->|"Cypher Queries"| GraphDB
+    SearchService -->|"Index Lookup"| GraphDB
+    AuthService -->|"User Profiles"| RelationalDB
+
+    %% External to Ingestion
+    OpenTargets -.->|"JSON/Parquet"| ETL_Worker
+    KEGG -.->|"XML/API"| ETL_Worker
+    Reactome -.->|"BioPAX"| ETL_Worker
+    BioGRID -.->|"Tab-delimited"| ETL_Worker
+    NCBI -.->|"FASTA/XML"| ETL_Worker
+
+    %% Ingestion Internal Flow
+    ETL_Worker -->|"Raw Data"| DataValidator
+    DataValidator -->|"Cleaned Nodes/Edges"| GraphDB
+    DataValidator -->|"Metadata Logs"| RelationalDB
+
+    %% Admin specific trigger
+    Admin -.->|"Trigger Pipeline"| ETL_Worker
     
 ```
 
