@@ -33,27 +33,25 @@ flowchart TD
 
         %% Presentation Layer
         subgraph UI_Layer ["🖥️ Presentation Layer"]
-            WebPortal["⚛️ Web Portal<br/>(React/Vue SPA)"]:::frontend
-            AdminDash["🛠️ Admin Console<br/>(Management UI)"]:::frontend
+            WebPortal["⚛️ Web Portal<br/>(React)"]:::frontend
         end
 
         %% Application Layer
         subgraph App_Layer ["⚙️ Application & Service Layer"]
             APIGateway["🌐 API Gateway<br/>(REST/GraphQL)"]:::backend
-            AuthService["🛡️ Auth Service<br/>(SSO/RBAC)"]:::backend
-            AnalysisEngine["🧠 Analysis Engine<br/>(Graph Algorithms/ML)"]:::backend
-            SearchService["🔍 Search Service<br/>(Elasticsearch)"]:::backend
+            AuthService["🛡️ Auth Service"]:::backend
+            AnalysisEngine["🧠 Analysis Engine<br/>(Graph Algorithms"]:::backend
         end
 
         %% Data Ingestion Layer
         subgraph ETL_Layer ["📥 Data Ingestion Pipeline"]
-            ETL_Worker["🔄 ETL Workers<br/>(Python/Airflow)"]:::ingest
+            ETL_Worker["🔄 ETL Workers<br/>(Python/NestJS)"]:::ingest
             DataValidator["✅ Data Validator"]:::ingest
         end
 
         %% Persistence Layer
         subgraph Data_Layer ["💾 Persistence Layer"]
-            GraphDB[("🕸️ Knowledge Graph<br/>(Neo4j/Amazon Neptune)<br/>Stores PPI & Pathways")]:::database
+            GraphDB[("🕸️ Knowledge Graph<br/>(Neo4j)<br/>Stores PPI & Pathways")]:::database
             RelationalDB[("🗄️ Relational DB<br/>(PostgreSQL)<br/>User Data & Metadata")]:::database
         end
     end
@@ -72,28 +70,24 @@ flowchart TD
     
     %% User to UI
     Researcher ==>|"HTTPS / Queries"| WebPortal
-    Admin ==>|"HTTPS / Config"| AdminDash
 
     %% UI to API
     WebPortal -->|"API Calls"| APIGateway
-    AdminDash -->|"API Calls"| APIGateway
 
     %% API to Services
     APIGateway --> AuthService
     APIGateway --> AnalysisEngine
-    APIGateway --> SearchService
 
     %% Services to Data
     AnalysisEngine -->|"Cypher Queries"| GraphDB
-    SearchService -->|"Index Lookup"| GraphDB
     AuthService -->|"User Profiles"| RelationalDB
 
     %% External to Ingestion
-    OpenTargets -.->|"JSON/Parquet"| ETL_Worker
-    KEGG -.->|"XML/API"| ETL_Worker
-    Reactome -.->|"BioPAX"| ETL_Worker
+    OpenTargets -.->|"JSON"| ETL_Worker
+    KEGG -.->|"API"| ETL_Worker
+    Reactome -.->|"API"| ETL_Worker
     BioGRID -.->|"Tab-delimited"| ETL_Worker
-    NCBI -.->|"FASTA/XML"| ETL_Worker
+    NCBI -.->|"JSON/TXT"| ETL_Worker
 
     %% Ingestion Internal Flow
     ETL_Worker -->|"Raw Data"| DataValidator
