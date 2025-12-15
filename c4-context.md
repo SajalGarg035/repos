@@ -11,60 +11,98 @@ This document presents the TDP platform architecture using C4 model diagrams, pr
 Shows how the TDP platform fits into the broader ecosystem of users and external systems.
 
 ```mermaid
-flowchart LR
-    %% =======================
-    %% Actors
-    %% =======================
-    Researcher["👨‍🔬 Researcher / Scientist\n(End User)"]
-    Browser["🌐 Web Browser"]
+flowchart TD
+    %% --- STYLING DEFINITIONS ---
+    classDef userNode fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#01579b,rx:10,ry:10;
+    classDef extSystem fill:#f5f5f5,stroke:#616161,stroke-width:1px,color:#424242,stroke-dasharray: 5 5;
+    classDef frontend fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+    classDef backend fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#e65100;
+    classDef database fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c,shape:cyl;
+    classDef ingest fill:#fff8e1,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
 
-    %% =======================
-    %% System Boundary
-    %% =======================
-    subgraph TDP["🧬 Target Discovery Platform (System Boundary)"]
-        UC1(("Query gene interactions\nand disease associations"))
-        UC2(("View gene analytics\nand properties"))
-        UC3(("Perform pathway enrichment\nanalysis (GSEA)"))
-        UC4(("Access protected\nresearch data"))
-        UC5(("Manage session\n& authentication"))
-        UC6(("Cache frequently\naccessed results"))
-        UC7(("Submit feedback\nand feature requests"))
+    %% --- USER LAYER ---
+    subgraph Users ["👥 User Interaction Layer"]
+        direction LR
+        Researcher["👨‍🔬 Researcher<br/><i>Drug Target Discovery</i>"]:::userNode
+        Admin["👨‍💼 Administrator<br/><i>Config & Ingestion</i>"]:::userNode
     end
 
-    %% =======================
-    %% Actor Interactions
-    %% =======================
-    Researcher -->|"Uses via browser"| Browser
-    Browser --> UC1
-    Browser --> UC2
-    Browser --> UC3
-    Browser --> UC4
-    Browser --> UC7
+    %% --- MAIN PLATFORM BOUNDARY ---
+    subgraph TDP_Boundary ["🧬 Target Discovery Platform (TDP)"]
+        direction TB
 
-    %% =======================
-    %% Included / Supporting Use Cases
-    %% =======================
-    UC1 -->|"<<includes>>\nGraphQL queries"| UC5
-    UC2 -->|"<<includes>>\nAnalytics fetch"| UC5
-    UC4 -->|"<<includes>>\nAccess control"| UC5
+        %% Presentation Layer
+        subgraph UI_Layer ["🖥️ Presentation Layer"]
+            WebPortal["⚛️ Web Portal<br/>(React/Vue SPA)"]:::frontend
+            AdminDash["🛠️ Admin Console<br/>(Management UI)"]:::frontend
+        end
 
-    UC1 -->|"<<includes>>\nRead cache"| UC6
-    UC2 -->|"<<includes>>\nRead cache"| UC6
+        %% Application Layer
+        subgraph App_Layer ["⚙️ Application & Service Layer"]
+            APIGateway["🌐 API Gateway<br/>(REST/GraphQL)"]:::backend
+            AuthService["🛡️ Auth Service<br/>(SSO/RBAC)"]:::backend
+            AnalysisEngine["🧠 Analysis Engine<br/>(Graph Algorithms/ML)"]:::backend
+            SearchService["🔍 Search Service<br/>(Elasticsearch)"]:::backend
+        end
 
-    %% =======================
-    %% Styling
-    %% =======================
-    style Researcher fill:#08427b,stroke:#052e56,color:#ffffff
-    style Browser fill:#4f6bed,stroke:#2f3fb3,color:#ffffff
+        %% Data Ingestion Layer
+        subgraph ETL_Layer ["📥 Data Ingestion Pipeline"]
+            ETL_Worker["🔄 ETL Workers<br/>(Python/Airflow)"]:::ingest
+            DataValidator["✅ Data Validator"]:::ingest
+        end
 
-    style TDP fill:#1168bd,stroke:#0b4884,color:#ffffff
-    style UC1 fill:#ffffff,stroke:#333,color:#000000
-    style UC2 fill:#ffffff,stroke:#333,color:#000000
-    style UC3 fill:#ffffff,stroke:#333,color:#000000
-    style UC4 fill:#ffffff,stroke:#333,color:#000000
-    style UC5 fill:#f4f6f7,stroke:#555,color:#000000
-    style UC6 fill:#f4f6f7,stroke:#555,color:#000000
-    style UC7 fill:#ffffff,stroke:#333,color:#000000
+        %% Persistence Layer
+        subgraph Data_Layer ["💾 Persistence Layer"]
+            GraphDB[("🕸️ Knowledge Graph<br/>(Neo4j/Amazon Neptune)<br/>Stores PPI & Pathways")]:::database
+            RelationalDB[("🗄️ Relational DB<br/>(PostgreSQL)<br/>User Data & Metadata")]:::database
+        end
+    end
+
+    %% --- EXTERNAL SYSTEMS ---
+    subgraph External ["🌍 External Data Ecosystem"]
+        direction LR
+        OpenTargets["📊 Open Targets"]:::extSystem
+        KEGG["🔬 KEGG"]:::extSystem
+        Reactome["⚗️ Reactome"]:::extSystem
+        BioGRID["🧪 BioGRID"]:::extSystem
+        NCBI["🧬 NCBI"]:::extSystem
+    end
+
+    %% --- CONNECTIONS ---
+    
+    %% User to UI
+    Researcher ==>|"HTTPS / Queries"| WebPortal
+    Admin ==>|"HTTPS / Config"| AdminDash
+
+    %% UI to API
+    WebPortal -->|"API Calls"| APIGateway
+    AdminDash -->|"API Calls"| APIGateway
+
+    %% API to Services
+    APIGateway --> AuthService
+    APIGateway --> AnalysisEngine
+    APIGateway --> SearchService
+
+    %% Services to Data
+    AnalysisEngine -->|"Cypher Queries"| GraphDB
+    SearchService -->|"Index Lookup"| GraphDB
+    AuthService -->|"User Profiles"| RelationalDB
+
+    %% External to Ingestion
+    OpenTargets -.->|"JSON/Parquet"| ETL_Worker
+    KEGG -.->|"XML/API"| ETL_Worker
+    Reactome -.->|"BioPAX"| ETL_Worker
+    BioGRID -.->|"Tab-delimited"| ETL_Worker
+    NCBI -.->|"FASTA/XML"| ETL_Worker
+
+    %% Ingestion Internal Flow
+    ETL_Worker -->|"Raw Data"| DataValidator
+    DataValidator -->|"Cleaned Nodes/Edges"| GraphDB
+    DataValidator -->|"Metadata Logs"| RelationalDB
+
+    %% Admin specific trigger
+    Admin -.->|"Trigger Pipeline"| ETL_Worker
+    
 ```
 
 ### Context Description
