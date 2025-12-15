@@ -11,100 +11,45 @@ This document presents the TDP platform architecture using C4 model diagrams, pr
 Shows how the TDP platform fits into the broader ecosystem of users and external systems.
 
 ```mermaid
-flowchart TB
+flowchart LR
     %% =======================
-    %% Primary Actor
+    %% Actors
     %% =======================
-    subgraph users["Primary Actor"]
-        Researcher["👨‍🔬 End User (Researcher / Scientist)\nAccesses TDP via web browser\nQueries gene–disease relationships\nPerforms enrichment analysis"]
-    end
-
-    %% =======================
-    %% Entry Point
-    %% =======================
-    Browser["🌐 User Web Browser\n(Chrome / Firefox)\nHTTP/HTTPS : 80 / 443"]
+    Researcher["👨‍🔬 Researcher / Scientist\n(End User)"]
+    Browser["🌐 Web Browser"]
 
     %% =======================
     %% System Boundary
     %% =======================
-    subgraph tdp["🧬 Target Discovery Platform (TDP)\nSystem Boundary"]
-        direction TB
-
-        APIGW["🚪 API Gateway (Nginx)\nEntry point\nRoutes requests\nPorts 80 / 443"]
-
-        Frontend["🖥️ Frontend Service (Next.js)\nUser Interface\nGraphQL + REST client\nSession handling"]
-
-        Backend["⚙️ Backend Service (NestJS)\n/api/nestjs/*\nGraphQL API\nBusiness logic\nAuth & access control"]
-
-        GSEA["🧪 GSEA Service (FastAPI)\n/api/gsea/*\nGene Set Enrichment\nAnalysis"]
-
-        %% Data Stores
-        Neo4j["🕸️ Neo4j\nGraph DB\nGenes · Diseases · Interactions\nBolt : 7687"]
-        ClickHouse["📈 ClickHouse\nAnalytics DB\nGene properties & scores\nTCP : 9000"]
-        Postgres["🗄️ PostgreSQL\nSessions · Feedback · Metadata\nTCP : 5432"]
-        Redis["⚡ Redis Cache\nQuery results & sessions\nTCP : 6379"]
-
-        %% Internal Processing
-        GSEAPY["🧬 gseapy Library\nEnrichment computation\nGMT pathway files"]
+    subgraph TDP["🧬 Target Discovery Platform (System Boundary)"]
+        UC1(("Query gene interactions\nand disease associations"))
+        UC2(("View gene analytics\nand properties"))
+        UC3(("Perform pathway enrichment\nanalysis (GSEA)"))
+        UC4(("Access protected\nresearch data"))
+        UC5(("Manage session\n& authentication"))
+        UC6(("Cache frequently\naccessed results"))
+        UC7(("Submit feedback\nand feature requests"))
     end
 
     %% =======================
-    %% User Interaction Flow
+    %% Actor Interactions
     %% =======================
-    Researcher -->|"Uses platform"| Browser
-    Browser -->|"HTTP / HTTPS"| APIGW
+    Researcher -->|"Uses via browser"| Browser
+    Browser --> UC1
+    Browser --> UC2
+    Browser --> UC3
+    Browser --> UC4
+    Browser --> UC7
 
     %% =======================
-    %% Routing
+    %% Included / Supporting Use Cases
     %% =======================
-    APIGW -->|"UI requests"| Frontend
-    APIGW -->|"GraphQL / REST"| Backend
-    APIGW -->|"POST gene lists"| GSEA
+    UC1 -->|"<<includes>>\nGraphQL queries"| UC5
+    UC2 -->|"<<includes>>\nAnalytics fetch"| UC5
+    UC4 -->|"<<includes>>\nAccess control"| UC5
 
-    %% =======================
-    %% Frontend ↔ Backend
-    %% =======================
-    Frontend -->|"GraphQL queries\nGenes, diseases, interactions"| Backend
-    Backend -->|"GraphQL responses"| Frontend
-
-    Frontend -->|"REST calls\nAccess protected research data"| Backend
-
-    %% =======================
-    %% Graph Query Flow
-    %% =======================
-    Backend -->|"Cache check (READ)"| Redis
-    Redis -->|"Cache miss"| Backend
-    Backend -->|"Graph queries (READ)\nGenes & interactions"| Neo4j
-    Backend -->|"Store results (WRITE)"| Redis
-    Backend -->|"Query response"| Frontend
-
-    %% =======================
-    %% Analytics Query Flow
-    %% =======================
-    Backend -->|"Analytics queries (READ)"| ClickHouse
-    ClickHouse -->|"Aggregated data"| Backend
-    Backend -->|"Analytics response"| Frontend
-
-    %% =======================
-    %% GSEA Flow
-    %% =======================
-    Frontend -->|"POST gene list"| GSEA
-    GSEA -->|"Run enrichment"| GSEAPY
-    GSEAPY -->|"Pathway results"| GSEA
-    GSEA -->|"Enrichment output"| Frontend
-
-    %% =======================
-    %% Data Commons Flow
-    %% =======================
-    Backend -->|"Session validation (READ)"| Postgres
-    Postgres -->|"Access granted"| Backend
-    Backend -->|"Serve protected files"| Frontend
-
-    %% =======================
-    %% Feedback Flow
-    %% =======================
-    Frontend -->|"Submit feedback (WRITE)"| Backend
-    Backend -->|"Store feedback"| Postgres
+    UC1 -->|"<<includes>>\nRead cache"| UC6
+    UC2 -->|"<<includes>>\nRead cache"| UC6
 
     %% =======================
     %% Styling
@@ -112,17 +57,14 @@ flowchart TB
     style Researcher fill:#08427b,stroke:#052e56,color:#ffffff
     style Browser fill:#4f6bed,stroke:#2f3fb3,color:#ffffff
 
-    style APIGW fill:#1168bd,stroke:#0b4884,color:#ffffff
-    style Frontend fill:#1168bd,stroke:#0b4884,color:#ffffff
-    style Backend fill:#1168bd,stroke:#0b4884,color:#ffffff
-    style GSEA fill:#1168bd,stroke:#0b4884,color:#ffffff
-
-    style Neo4j fill:#2ecc71,stroke:#1e8449,color:#ffffff
-    style ClickHouse fill:#f39c12,stroke:#b9770e,color:#ffffff
-    style Postgres fill:#3498db,stroke:#21618c,color:#ffffff
-    style Redis fill:#e74c3c,stroke:#922b21,color:#ffffff
-    style GSEAPY fill:#8e44ad,stroke:#5b2c6f,color:#ffffff
-
+    style TDP fill:#1168bd,stroke:#0b4884,color:#ffffff
+    style UC1 fill:#ffffff,stroke:#333,color:#000000
+    style UC2 fill:#ffffff,stroke:#333,color:#000000
+    style UC3 fill:#ffffff,stroke:#333,color:#000000
+    style UC4 fill:#ffffff,stroke:#333,color:#000000
+    style UC5 fill:#f4f6f7,stroke:#555,color:#000000
+    style UC6 fill:#f4f6f7,stroke:#555,color:#000000
+    style UC7 fill:#ffffff,stroke:#333,color:#000000
 ```
 
 ### Context Description
